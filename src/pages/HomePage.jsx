@@ -105,7 +105,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-3xl p-4 mx-auto sm:p-6 lg:p-8">
         <header className="flex items-center justify-between pb-6 mb-8 border-b border-slate-200">
-            <h1 className="text-2xl font-bold text-slate-800">Tiny English Habits</h1>
+            <h1 className="text-2xl font-bold text-slate-800">Tiny English Habits ✨</h1>
             <div>
                 <button onClick={() => navigate('/stats')} className="px-4 py-2 mr-2 text-sm font-medium text-slate-700 bg-slate-200 rounded-lg hover:bg-slate-300 transition-colors">
                     我的仪表盘
