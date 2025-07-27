@@ -2,7 +2,7 @@
 /node_modules
 
 # Vite build output
-# /dist # Temporarily allow for Gitee Pages deployment
+/dist
 /dist-ssr
 
 # Log files
