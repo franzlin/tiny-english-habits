@@ -2,7 +2,7 @@
 /node_modules
 
 # Vite build output
-/dist
+# /dist # Temporarily allow for Gitee Pages deployment
 /dist-ssr
 
 # Log files
@@ -27,3 +27,4 @@ pnpm-debug.log*
 # OS generated files
 .DS_Store
 Thumbs.db
+.vercel
