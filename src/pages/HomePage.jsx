@@ -7,7 +7,7 @@ import Quiz from '../components/Quiz.jsx';
 import CompletionModal from '../components/CompletionModal.jsx';
 
 export default function HomePage() {
-  const { signOut } = useAuth();
+  const { signOut, user, loading: authLoading } = useAuth();
   const { profile, loading: profileLoading, updateProfile } = useProfile();
   const navigate = useNavigate();
 
@@ -196,6 +196,18 @@ export default function HomePage() {
       <div className="max-w-3xl p-4 mx-auto sm:p-6 lg:p-8">
         <header className="flex items-center justify-between pb-6 mb-8 border-b border-slate-200">
             <h1 className="text-2xl font-bold text-slate-800">Tiny English Habits ✨</h1>
+            {/* --- DEBUG BLOCK START --- */}
+            <div className="p-2 text-xs text-center text-white bg-red-500 rounded-md">
+                <h3 className="font-bold">Auth Debug</h3>
+                {authLoading ? (
+                    <p>Auth state is loading...</p>
+                ) : user ? (
+                    <p>User ID: {user.id}</p>
+                ) : (
+                    <p>User is NULL</p>
+                )}
+            </div>
+            {/* --- DEBUG BLOCK END --- */}
             <div>
                 <button onClick={() => navigate('/stats')} className="px-4 py-2 mr-2 text-sm font-medium text-slate-700 bg-slate-200 rounded-lg hover:bg-slate-300 transition-colors">
                     我的仪表盘
