@@ -84,12 +84,6 @@ export const useProfile = () => {
       const { error } = await query;
 
       if (error) {
-        // 在这里添加强制的、详细的错误日志
-        console.error("!!! VERCEL PROFILE UPDATE FAILED !!!");
-        console.error("Error Code:", error.code);
-        console.error("Error Message:", error.message);
-        console.error("Error Details:", error.details);
-        console.error("Full Error Object:", error);
         throw error;
       }
       
