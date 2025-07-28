@@ -1,9 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { supabase } from '../supabaseClient.js';
 
-export default function Quiz({ practice, onQuizComplete, lexileLevel }) {
-  const [selectedAnswers, setSelectedAnswers] = useState({});
-  const [showResults, setShowResults] = useState(false);
+export default function Quiz({ 
+  practice, 
+  onQuizComplete, 
+  lexileLevel, 
+  showResults, 
+  selectedAnswers, 
+  onAnswerSelect 
+}) {
 
   // --- 音频功能状态 ---
   const [isAudioLoading, setIsAudioLoading] = useState(false);
@@ -35,12 +40,11 @@ export default function Quiz({ practice, onQuizComplete, lexileLevel }) {
   };
 
   const handleAnswerSelect = (questionIndex, option) => {
-    setSelectedAnswers(prev => ({ ...prev, [questionIndex]: option }));
+    onAnswerSelect(prev => ({ ...prev, [questionIndex]: option }));
   };
 
   const handleSubmit = () => {
-    setShowResults(true);
-    // 无论对错，都计算得分
+    // 移除 setShowResults(true); 因为状态由父组件控制
     const correctCount = practice.questions.reduce((acc, q, i) => {
       return selectedAnswers[i] === q.correct_answer ? acc + 1 : acc;
     }, 0);
@@ -50,7 +54,6 @@ export default function Quiz({ practice, onQuizComplete, lexileLevel }) {
       total: practice.questions.length,
     };
 
-    // 调用回调函数，并传递得分
     onQuizComplete(practice.type, score);
   };
 
@@ -129,23 +132,41 @@ export default function Quiz({ practice, onQuizComplete, lexileLevel }) {
           <p className="mb-3 font-medium">{qIndex + 1}. {q.question_text}</p>
           <div className="space-y-2">
             {q.options.map((option, oIndex) => {
-              const isSelected = selectedAnswers[qIndex] === option;
-              const isCorrect = option === q.correct_answer;
+              let buttonClass = "w-full p-3 text-left border rounded-lg transition-colors";
+              let icon = '⬜️';
+
+              if (showResults) {
+                const isCorrectAnswer = option === q.correct_answer;
+                const isSelectedAnswer = selectedAnswers[qIndex] === option;
+
+                if (isCorrectAnswer) {
+                  buttonClass += ' bg-green-100 border-green-400 text-green-900 font-bold';
+                  icon = '🟢';
+                } else if (isSelectedAnswer) {
+                  buttonClass += ' bg-red-100 border-red-400 text-red-900';
+                  icon = '🔴';
+                } else {
+                  buttonClass += ' bg-gray-50 text-gray-500';
+                  icon = '⚪️';
+                }
+              } else {
+                const isSelected = selectedAnswers[qIndex] === option;
+                if (isSelected) {
+                  buttonClass += ' bg-indigo-100 border-indigo-300';
+                  icon = '✅';
+                } else {
+                  buttonClass += ' bg-gray-100 hover:bg-gray-200';
+                }
+              }
 
               return (
                 <button 
                   key={oIndex} 
                   onClick={() => handleAnswerSelect(qIndex, option)} 
                   disabled={showResults}
-                  className="w-full p-3 text-left border rounded-lg bg-gray-100 text-gray-800"
+                  className={buttonClass}
                 >
-                  <span className="mr-3 font-mono text-lg">
-                    {
-                      showResults
-                        ? (isCorrect ? '🟢' : (isSelected ? '🔴' : '⚪️'))
-                        : (isSelected ? '✅' : '⬜️')
-                    }
-                  </span>
+                  <span className="mr-3 font-mono text-lg">{icon}</span>
                   {option}
                 </button>
               );
@@ -154,7 +175,11 @@ export default function Quiz({ practice, onQuizComplete, lexileLevel }) {
         </div>
       ))}
       {!showResults && (
-        <button onClick={handleSubmit} className="w-full px-4 py-2 mt-4 font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+        <button 
+          onClick={handleSubmit} 
+          disabled={Object.keys(selectedAnswers).length < practice.questions.length}
+          className="w-full px-4 py-3 mt-4 font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:bg-indigo-400 transition-colors"
+        >
           提交答案
         </button>
       )}
