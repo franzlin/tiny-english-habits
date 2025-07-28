@@ -63,7 +63,10 @@ export default function HomePage() {
       }
       console.error(err);
     } finally {
-      setLoading(false);
+      // 无论成功或失败，都设置一个短暂的冷却时间，防止用户过快地连续点击
+      setTimeout(() => {
+        setLoading(false);
+      }, 3000); // 3秒的冷却时间
     }
   };
 

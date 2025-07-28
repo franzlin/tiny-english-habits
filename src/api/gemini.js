@@ -1,5 +1,29 @@
-// 从环境变量中获取 API 密钥
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+// --- 新增：智能密钥管理器 ---
+
+/**
+ * 从环境变量中读取所有可用的 Gemini API 密钥
+ * @returns {string[]} 一个包含所有有效密钥的数组
+ */
+function getAvailableApiKeys() {
+  console.log("开始查找可用的 Gemini API 密钥...");
+  const keys = [];
+  // 循环检查 VITE_GEMINI_API_KEY_1, VITE_GEMINI_API_KEY_2, ...
+  for (let i = 1; i <= 10; i++) { // 最多支持10个备用密钥
+    const key = import.meta.env[`VITE_GEMINI_API_KEY_${i}`];
+    if (key && !key.startsWith("在这里填入")) {
+      console.log(`找到密钥 VITE_GEMINI_API_KEY_${i}`);
+      keys.push(key);
+    }
+  }
+  // 兼容旧的单个密钥格式
+  const singleKey = import.meta.env.VITE_GEMINI_API_KEY;
+  if (singleKey && !keys.includes(singleKey) && !singleKey.startsWith("AIzaSy")) {
+      console.log("找到旧格式的密钥 VITE_GEMINI_API_KEY");
+      keys.push(singleKey);
+  }
+  console.log(`总共找到 ${keys.length} 个可用密钥。`);
+  return keys;
+}
 
 /**
  * 根据用户偏好生成一个包含练习内容和配套问题的完整练习包
@@ -9,25 +33,19 @@ const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
  * @returns {Promise<object>} - 返回一个包含练习内容的JSON对象
  */
 export async function generatePractice(topic, lexileLevel, contentType) {
-  if (!GEMINI_API_KEY || GEMINI_API_KEY === "YOUR_GEMINI_API_KEY") {
-    console.error("Gemini API key is not configured.");
-    // 根据内容类型返回不同的模拟数据
-    if (contentType === 'audio') {
-        return {
-            type: "audio_with_questions",
-            script: `This is a mock audio script about ${topic}. It's designed to be about 25 seconds long when read aloud.`,
-            questions: [{ question_text: "What is the main idea of the audio?", options: ["Idea A", "Idea B", "The correct idea", "Idea D"], correct_answer: "The correct idea" }]
-        };
-    }
+  const apiKeys = getAvailableApiKeys();
+
+  if (apiKeys.length === 0) {
+    console.error("Gemini API 密钥未配置。");
+    // 返回模拟数据作为备用方案
     return {
       type: "text_with_questions",
-      content: `This is a mock paragraph about ${topic}. The main point is that AI is transforming the tech industry.`,
-      questions: [{ question_text: "What is the main point?", options: ["AI is not important", "AI is transforming the tech industry", "Tech is not changing", "AI is simple"], correct_answer: "AI is transforming the tech industry" }]
+      content: `This is a mock paragraph because no API key is configured. The topic was ${topic}.`,
+      questions: [{ question_text: "What is the main point?", options: ["A", "B", "C", "D"], correct_answer: "A" }]
     };
   }
 
-  const model = "gemini-1.5-flash-latest";
-  const URL = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+  const model = "gemini-1.5-pro-latest";
 
   // 根据 contentType 动态生成不同的 prompt
   const prompt = `
@@ -68,42 +86,45 @@ export async function generatePractice(topic, lexileLevel, contentType) {
     Now, generate the exercise package based on the user's request.
   `;
 
-  const body = {
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: { responseMimeType: "application/json" }
-  };
+  // --- 新增：使用密钥池进行循环重试 ---
+  for (const apiKey of apiKeys) {
+    const URL = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const body = {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: "application/json" }
+    };
 
-  try {
-    const apiResponse = await fetch(URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    try {
+      console.log(`%c[密钥轮换] 正在尝试使用密钥 ...${apiKey.slice(-4)}`, 'color: blue; font-weight: bold;');
+      const apiResponse = await fetch(URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
 
-    if (!apiResponse.ok) {
-        // 如果是速率限制错误，抛出一个特定的、友好的错误
-        if (apiResponse.status === 429) {
-            console.warn("Google API rate limit exceeded.");
-            throw new Error("RATE_LIMIT_EXCEEDED");
-        }
-        // 对于其他错误，记录详细信息并抛出通用错误
+      if (apiResponse.status === 429) {
+        console.warn(`%c[密钥轮换] 密钥 ...${apiKey.slice(-4)} 遭遇速率限制 (429)。正在切换到下一个密钥...`, 'color: orange;');
+        continue; // 跳过当前循环，尝试下一个密钥
+      }
+
+      if (!apiResponse.ok) {
         const errorData = await apiResponse.json();
-        console.error("Google API Error Response:", errorData);
-        throw new Error(`Google API responded with status: ${apiResponse.status}`);
-    }
+        console.error(`%c[密钥轮换] 密钥 ...${apiKey.slice(-4)} 返回了一个API错误 (状态码: ${apiResponse.status})。正在切换到下一个密钥...`, 'color: red;', errorData);
+        continue;
+      }
 
-    const responseData = await apiResponse.json();
-    const text = responseData.candidates[0].content.parts[0].text;
-    return JSON.parse(text);
+      const responseData = await apiResponse.json();
+      const text = responseData.candidates[0].content.parts[0].text;
+      console.log(`%c[密钥轮换] 密钥 ...${apiKey.slice(-4)} 请求成功！`, 'color: green; font-weight: bold;');
+      return JSON.parse(text); // 成功获取数据，立即返回
 
-  } catch (error) {
-    // 将捕获到的错误直接向上传递，以便UI层可以处理特定错误
-    console.error("Error in generatePractice function:", error.message);
-    // 如果是我们自定义的速率超限错误，直接抛出
-    if (error.message === "RATE_LIMIT_EXCEEDED") {
-        throw error;
+    } catch (networkError) {
+      console.error(`%c[密钥轮换] 使用密钥 ...${apiKey.slice(-4)} 时发生网络错误。正在切换到下一个密钥...`, 'color: red;', networkError);
+      continue;
     }
-    // 对于其他所有错误，包装成一个通用的失败提示
-    throw new Error("Failed to generate practice content from Gemini API.");
   }
+
+  // 如果所有密钥都尝试失败，最终抛出速率限制错误
+  console.error("所有可用的 Gemini API 密钥都已达到速率限制。");
+  throw new Error("RATE_LIMIT_EXCEEDED");
 }
