@@ -54,7 +54,13 @@ export default function HomePage() {
       const newPractice = await generatePractice(selectedTopic, lexileLevel, contentType);
       setPractice(newPractice);
     } catch (err) {
-      setError('无法生成练习，请稍后再试。');
+      // 检查是否是速率限制错误
+      if (err.message === 'RATE_LIMIT_EXCEEDED') {
+        setError('请求过于频繁，请稍等片刻再试。');
+      } else {
+        // 对于其他错误，显示通用提示
+        setError('无法生成练习，请稍后再试。');
+      }
       console.error(err);
     } finally {
       setLoading(false);

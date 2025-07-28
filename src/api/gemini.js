@@ -81,6 +81,12 @@ export async function generatePractice(topic, lexileLevel, contentType) {
     });
 
     if (!apiResponse.ok) {
+        // 如果是速率限制错误，抛出一个特定的、友好的错误
+        if (apiResponse.status === 429) {
+            console.warn("Google API rate limit exceeded.");
+            throw new Error("RATE_LIMIT_EXCEEDED");
+        }
+        // 对于其他错误，记录详细信息并抛出通用错误
         const errorData = await apiResponse.json();
         console.error("Google API Error Response:", errorData);
         throw new Error(`Google API responded with status: ${apiResponse.status}`);
@@ -91,7 +97,13 @@ export async function generatePractice(topic, lexileLevel, contentType) {
     return JSON.parse(text);
 
   } catch (error) {
-    console.error("Error generating practice content:", error);
+    // 将捕获到的错误直接向上传递，以便UI层可以处理特定错误
+    console.error("Error in generatePractice function:", error.message);
+    // 如果是我们自定义的速率超限错误，直接抛出
+    if (error.message === "RATE_LIMIT_EXCEEDED") {
+        throw error;
+    }
+    // 对于其他所有错误，包装成一个通用的失败提示
     throw new Error("Failed to generate practice content from Gemini API.");
   }
 }
